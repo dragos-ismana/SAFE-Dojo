@@ -34,6 +34,7 @@ type Model =
 /// The different types of messages in the system.
 type Msg =
     | GetReport
+    | Clear
     | PostcodeChanged of string
     | GotReport of Report
     | ErrorMsg of exn
@@ -80,6 +81,12 @@ let update msg model =
                 Postcode = p
                 ValidationError = validation}, Cmd.none
     | _, ErrorMsg e -> { model with ServerState = ServerError e.Message }, Cmd.none
+    | _, Clear -> 
+        { model with 
+            Postcode = ""
+            ValidationError = Some ""
+            Report = None
+            ServerState = ServerState.Idle }, Cmd.none
 
 [<AutoOpen>]
 module ViewParts =
@@ -197,7 +204,13 @@ let view model dispatch =
                                       Button.OnClick (fun _ -> dispatch GetReport)
                                       Button.Disabled (model.ValidationError.IsSome)
                                       Button.IsLoading (model.ServerState = ServerState.Loading) ]
-                                    [ str "Submit" ] ] ] ]
+                                    [ str "Submit" ] 
+                                
+                                Button.button
+                                    [ Button.IsFullWidth
+                                      Button.Color IsPrimary
+                                      Button.OnClick (fun _ -> dispatch Clear) ]
+                                    [ str "Clear" ] ] ] ] 
 
                 ]
 
