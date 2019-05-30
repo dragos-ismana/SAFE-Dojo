@@ -50,6 +50,7 @@ let getWeather postcode next ctx = task {
 let apiRouter = router {
     pipe_through (pipeline { set_header "x-pipeline-type" "Api" })
     getf "/distance/%s" getDistanceFromLondon
+    getf "/crime/%s" getCrimeReport
 
     (* Task 1.0 CRIME: Add a new /crime/{postcode} endpoint to return crime data
        using the getCrimeReport web part function. Use the above distance
