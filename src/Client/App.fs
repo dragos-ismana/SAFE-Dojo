@@ -14,11 +14,13 @@ open Fable.Recharts.Props
 open Fulma
 
 open Shared
+open Helpers
 
 /// The different elements of the completed report.
 type Report =
     { Location : LocationResponse
-      Crimes : CrimeResponse array }
+      Crimes : CrimeResponse array
+      Weather: WeatherResponse }
 
 type ServerState = Idle | Loading | ServerError of string
 
@@ -45,15 +47,18 @@ let init () =
 
 let decoderForLocationResponse = Thoth.Json.Decode.Auto.generateDecoder<LocationResponse> ()
 let decoderForCrimeResponse = Thoth.Json.Decode.Auto.generateDecoder<CrimeResponse array>()
+let decoderForWeatherResponse = Thoth.Json.Decode.Auto.generateDecoder<WeatherResponse>()
 
 let getResponse postcode = promise {
-    let! location = Fetch.fetchAs<LocationResponse> (sprintf "/api/distance/%s" postcode) decoderForLocationResponse []
-    let! crimes = Fetch.tryFetchAs (sprintf "api/crime/%s" postcode) decoderForCrimeResponse [] |> Promise.map (Result.defaultValue [||])
+    let! location = Fetch.fetchAs<LocationResponse> 
+                        (sprintf "/api/distance/%s" postcode) decoderForLocationResponse []
+    let! crimes = Fetch.tryFetchAs 
+                        (sprintf "api/crime/%s" postcode) decoderForCrimeResponse [] 
+                        |> Promise.map (Result.defaultValue [||])
+    let! weather = Fetch.fetchAs<WeatherResponse> 
+                        (sprintf "/api/getWeather/%s" postcode) decoderForWeatherResponse []
 
-    (* Task 4.5 WEATHER: Fetch the weather from the API endpoint you created.
-       Then, save its value into the Report below. You'll need to add a new
-       field to the Report type first, though! *)
-    return { Location = location; Crimes = crimes } }
+    return { Location = location; Crimes = crimes; Weather = weather } }
 
 /// The update function knows how to update the model given a message.
 let update msg model =
@@ -126,9 +131,9 @@ module ViewParts =
                         ]
                         Level.title [ ] [
                             Heading.h3 [ Heading.Is4; Heading.Props [ Style [ Width "100%" ] ] ] [
-                                (* Task 4.8 WEATHER: Get the temperature from the given weather report
-                                   and display it here instead of an empty string. *)
-                                str ""
+                                str (weatherReport.WeatherType |> string)
+                                br []
+                                str (sprintf "%s °C" (string (weatherReport.AverageTemperature |> roundF 1 )))
                             ]
                         ]
                     ]
@@ -218,9 +223,7 @@ let view model dispatch =
                     Tile.ancestor [ ] [
                         Tile.parent [ Tile.IsVertical; Tile.Size Tile.Is4 ] [
                             locationTile model
-                            (* Task 4.6 WEATHER: Generate the view code for the weather tile
-                               using the weatherTile function, supplying the weather report
-                               from the model, and include it here as part of the list *)
+                            weatherTile model.Weather
                         ]
                         Tile.parent [ Tile.Size Tile.Is8 ] [
                             crimeTile model.Crimes
