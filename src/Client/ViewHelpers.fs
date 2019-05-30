@@ -47,4 +47,12 @@ let safeComponents =
           components ]
 
 module Result =
-    let defaultValue v r = match r with Ok x -> x | Error _ -> v
+    let defaultValue v r = 
+      match r with 
+      | Ok x -> x 
+      | Error _ -> v
+
+    let defaultVal v mapper r = 
+      match r with 
+      | Ok x -> mapper x 
+      | Error _ -> v

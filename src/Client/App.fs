@@ -15,6 +15,7 @@ open Fulma
 
 open Shared
 open Helpers
+open Thoth.Json
 
 /// The different elements of the completed report.
 type Report =
@@ -50,14 +51,19 @@ let decoderForLocationResponse = Thoth.Json.Decode.Auto.generateDecoder<Location
 let decoderForCrimeResponse = Thoth.Json.Decode.Auto.generateDecoder<CrimeResponse array>()
 let decoderForWeatherResponse = Thoth.Json.Decode.Auto.generateDecoder<WeatherResponse>()
 
+let inline getJson<'T> (response: Fetch.Fetch_types.Response) =
+    response.text() 
+    |> Promise.map Decode.Auto.unsafeFromString<'T>
+
+let inline extract<'b> a =
+    match a with
+    | Ok e -> getJson<'b[]> e
+    | Error _ -> Promise.lift [||]
+ 
 let getResponse postcode = promise {
-    let! location = Fetch.fetchAs<LocationResponse> 
-                        (sprintf "/api/distance/%s" postcode) decoderForLocationResponse []
-    let! crimes = Fetch.tryFetchAs 
-                        (sprintf "api/crime/%s" postcode) decoderForCrimeResponse [] 
-                        |> Promise.map (Result.defaultValue [||])
-    let! weather = Fetch.fetchAs<WeatherResponse> 
-                        (sprintf "/api/getWeather/%s" postcode) decoderForWeatherResponse []
+    let! location = Fetch.postRecord "/api/distance/" postcode [] |> Promise.bind getJson<LocationResponse>
+    let! crimes = Fetch.tryPostRecord "api/crime/" postcode [] |> Promise.bind extract<CrimeResponse>
+    let! weather = Fetch.postRecord "/api/getWeather/" postcode [] |> Promise.bind getJson<WeatherResponse>
 
     return { Location = location; Crimes = crimes; Weather = weather } }
 
