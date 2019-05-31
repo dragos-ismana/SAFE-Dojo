@@ -24,23 +24,9 @@ type Report =
       Weather: WeatherResponse }
 
 let emptyReport = 
-    { Location = 
-        { DistanceToLondon = 0.
-          Postcode = ""
-          Location = 
-          { Town = ""
-            Region = ""    
-            LatLong = 
-            { Latitude = 0.
-              Longitude = 0.
-            }                
-          }
-        }
+    { Location = { DistanceToLondon = 0.; Postcode = ""; Location = { Town = ""; Region = "" ; LatLong = { Latitude = 0.; Longitude = 0. } } }
       Crimes = [||]
-      Weather = 
-        { AverageTemperature = 0.
-          WeatherType = WeatherType.Clear
-        }   
+      Weather = { AverageTemperature = 0.; WeatherType = WeatherType.Clear }   
     }  
 
 type ServerState = Idle | Loading | ServerError of string
