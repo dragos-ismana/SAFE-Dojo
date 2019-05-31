@@ -46,7 +46,11 @@ module Weather =
             (location.Latitude, location.Longitude)
             ||> sprintf "https://www.metaweather.com/api/location/search/?lattlong=%f,%f"
             |> MetaWeatherSearch.AsyncLoad
-        let bestLocationId = locations |> Array.sortBy (fun t -> t.Distance) |> Array.map (fun o -> o.Woeid) |> Array.head
+        let bestLocationId = 
+            locations 
+            |> Array.sortBy (fun t -> t.Distance) 
+            |> Array.map (fun o -> o.Woeid) 
+            |> Array.head
         return!
             bestLocationId
             |> sprintf "https://www.metaweather.com/api/location/%d"

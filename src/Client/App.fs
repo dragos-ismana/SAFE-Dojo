@@ -23,6 +23,26 @@ type Report =
       Crimes : CrimeResponse array
       Weather: WeatherResponse }
 
+let emptyReport = 
+    { Location = 
+        { DistanceToLondon = 0.
+          Postcode = ""
+          Location = 
+          { Town = ""
+            Region = ""    
+            LatLong = 
+            { Latitude = 0.
+              Longitude = 0.
+            }                
+          }
+        }
+      Crimes = [||]
+      Weather = 
+        { AverageTemperature = 0.
+          WeatherType = WeatherType.Clear
+        }   
+    }  
+
 type ServerState = Idle | Loading | ServerError of string
 
 /// The overall data model driving the view.
@@ -47,25 +67,56 @@ let init () =
       ValidationError = None
       ServerState = Idle }, Cmd.ofMsg (PostcodeChanged "")
 
-let decoderForLocationResponse = Thoth.Json.Decode.Auto.generateDecoder<LocationResponse> ()
-let decoderForCrimeResponse = Thoth.Json.Decode.Auto.generateDecoder<CrimeResponse array>()
-let decoderForWeatherResponse = Thoth.Json.Decode.Auto.generateDecoder<WeatherResponse>()
-
 let inline getJson<'T> (response: Fetch.Fetch_types.Response) =
-    response.text() 
-    |> Promise.map Decode.Auto.unsafeFromString<'T>
+    response.json<'T>()
+
+let inline getSomeJson<'T> (response: Option<Fetch.Fetch_types.Response>) =
+    match response with
+    | Some a -> a.json<'T>() |> Promise.map Some
+    | None -> Promise.lift None
 
 let inline extract<'b> a =
     match a with
     | Ok e -> getJson<'b[]> e
     | Error _ -> Promise.lift [||]
- 
-let getResponse postcode = promise {
-    let! location = Fetch.postRecord "/api/distance/" postcode [] |> Promise.bind getJson<LocationResponse>
-    let! crimes = Fetch.tryPostRecord "api/crime/" postcode [] |> Promise.bind extract<CrimeResponse>
-    let! weather = Fetch.postRecord "/api/getWeather/" postcode [] |> Promise.bind getJson<WeatherResponse>
 
-    return { Location = location; Crimes = crimes; Weather = weather } }
+let inline toOpt (a:Result<Fetch.Fetch_types.Response, System.Exception>) =
+    match a with
+    | Ok e -> Some e
+    | Error _ -> None 
+
+type WorkResult =
+    | Location of LocationResponse
+    | Crime of Option<CrimeResponse[]>
+    | Weather of WeatherResponse
+
+let stateFolder (state:Report) current =
+    match current with
+    | Location l -> { state with Location = l }
+    | Crime c -> 
+        match c with
+        | Some cs -> { state with Crimes = cs }
+        | None -> state            
+    | Weather w -> { state with Weather = w }
+
+let getResponse postcode = promise {
+
+    let location = 
+        Fetch.postRecord "/api/distance/" postcode [] 
+        |> Promise.bind (getJson<LocationResponse>) 
+        |> Promise.map Location
+    let weather = 
+        Fetch.postRecord "/api/getWeather/" postcode [] 
+        |> Promise.bind (getJson<WeatherResponse>)
+        |> Promise.map Weather
+    let crime = 
+        Fetch.tryPostRecord "api/crime/" postcode [] 
+        |> Promise.bind (toOpt >> getSomeJson<CrimeResponse[]> )
+        |> Promise.map Crime
+
+    let! results = Promise.Parallel [ location; weather; crime ]
+
+    return Array.fold stateFolder emptyReport results }
 
 /// The update function knows how to update the model given a message.
 let update msg model =
